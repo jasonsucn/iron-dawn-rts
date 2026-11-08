@@ -1,0 +1,142 @@
+/* Integration refinements for the production HUD */
+.faction-pin { display: inline-block; width: 3px; height: 26px; background: var(--cyan); margin-right: 9px; vertical-align: -8px; box-shadow: 0 0 10px currentColor; }
+.build-panel { bottom: 150px !important; }
+.blueprint { min-height: 52px; height: 52px; }
+.blueprint-icon { filter: brightness(1.16) saturate(1.08); }
+.hud-brand { display: flex; align-items: center; gap: 0; }
+.hud-brand small { padding-left: 3px; font-size: 9px; }
+.hud-brand small span { color: #b7c7ba; }
+.build-tabs button { font-size: 9px; }
+.build-tabs button small { font-size: 7px; }
+.intel-head { font-size: 8px; }
+.intel-head b { font-size: 8px; }
+#intel-copy { font-size: 10px; line-height: 1.55; }
+.feed-line { font: 8px/1.3 var(--mono); }
+.feed { max-height: 36px; }
+.bp-power { font-size: 8px; }
+.bp-reason { font-size: 8px !important; }
+.queue-name b { font-size: 10px; }
+.queue-name small { font-size: 9px; }
+.super-title .tag { font-size: 8px; }
+.super-title b { font-size: 9px; }
+.super-button { font-size: 9px; }
+.selection-actions button, .building-actions button { font-size: 9px; }
+.unit-sub { font-size: 10px; }
+.queue-empty { font-size: 9px; }
+.notice-stack .toast { font-size: 10px; }
+.world-health span { font-size: 8px; }
+.mini-map header, .mini-map footer { font-size: 9px; }
+.read-cell em { display: block; min-height: 9px; font: 7px var(--mono); font-style: normal; color: var(--red); letter-spacing: 1px; margin-top: 2px; }
+.radar-cell b { color: #aebfb3; font-size: 13px !important; }
+.radar-cell b:not(:empty) { font-family: var(--mono); }
+.build-tabs button { padding-bottom: 7px; }
+.build-tabs button small { display: block; margin-top: 2px; font: 7px "Microsoft YaHei", sans-serif; letter-spacing: 1px; color: #62776f; }
+.build-tabs button.active small { color: #cbb37d; }
+.build-panel { overflow: hidden; bottom: 118px !important; }
+.build-panel.has-super .intel-card { display: none; }
+.catalog { min-height: 0 !important; overflow-y: auto; padding-bottom: 2px; }
+.build-foot { display: none !important; }
+.blueprint { height: 49px; min-height: 49px; margin-bottom: 0 !important; border-bottom: 1px solid rgba(174, 201, 193, .07); }
+.blueprint:hover { border-bottom-color: rgba(238, 194, 119, .35); }
+.intel-card { min-height: 71px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 7px 1px 6px; margin-bottom: 2px; }
+.feed { max-height: 32px; overflow: hidden; display: grid; gap: 2px; }
+.intel-head { display: flex; justify-content: space-between; align-items: center; font: 7px var(--mono); letter-spacing: 1.1px; color: #7a8d83; }
+.intel-head b { font: 7px var(--mono); letter-spacing: .8px; color: var(--cyan); }
+#intel-copy { margin: 5px 0 5px; font-size: 9px; line-height: 1.45; color: #a3b3a9; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.feed-line { font: 7px/1.3 var(--mono); color: #81958b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed-line span { color: #b79b64; margin-right: 4px; }
+.feed-line.warning { color: #cf8a72; }
+.feed-line.attack { color: #dd8c73; }
+.feed-line.super { color: #7fd1ca; }
+.queue-head { margin-top: 3px; }
+#battlefield { cursor: crosshair; }
+.menu-mode ~ #battlefield { cursor: default; }
+.blueprint { position: relative; text-align: left; padding: 5px 7px; gap: 8px; }
+.blueprint .blueprint-icon { flex-basis: 36px; height: 36px; overflow: hidden; background-size: cover; background-position: center; }
+.blueprint-copy small span { color: #5f726b; }
+.bp-power { display: inline-block; margin-left: 4px; font: 7px var(--mono); color: #79918a; }
+.bp-reason { display: block; margin-top: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #b77663 !important; font: 7px var(--mono) !important; }
+.blueprint.unaffordable .blueprint-copy small { color: #c88b5e; }
+.blueprint kbd { margin-top: -16px; align-self: flex-start; opacity: .7; }
+.queue-empty { padding: 12px 2px; color: #61766e; font: 8px var(--mono); letter-spacing: 1.2px; }
+.queue-item { grid-template-columns: 25px 1fr 58px 16px !important; gap: 6px; padding: 3px 0; }
+.queue-item.ready .queue-name small { color: var(--gold); }
+.queue-item.stalled .queue-name small { color: var(--red); }
+.queue-name { min-width: 0; }
+.queue-name b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; font-size: 9px; }
+.queue-name small { display: block; margin-top: 2px; font: 8px var(--mono); color: var(--muted); }
+.queue-cancel { width: 15px; height: 18px; padding: 0; border: 0; background: none !important; color: #73877e; font-size: 14px; }
+.queue-cancel:hover { color: var(--red); }
+.queue-glyph { width: 24px; height: 22px; display: grid; place-items: center; color: var(--icon); font-size: 16px; }
+.queue-glyph.has-thumb { background-size: cover; background-position: center; border: 1px solid rgba(160, 193, 181, .22); }
+.super-card { flex: 0 0 auto; margin-top: 6px; padding: 8px 1px 4px; border-top: 1px solid var(--line); }
+.super-title { display: flex; justify-content: space-between; align-items: center; gap: 7px; }
+.super-title .tag { padding: 3px 5px; font-size: 7px; }
+.super-title b { font: 8px var(--mono); letter-spacing: 1px; color: #72887e; }
+.super-card.charging .super-title b { color: #c7a66e; }
+.super-card.ready .super-title b { color: var(--cyan); text-shadow: 0 0 10px rgba(103, 230, 222, .5); }
+.super-track { height: 2px; margin: 6px 0 4px; background: #293a39; overflow: hidden; }
+.super-track i { display: block; width: 0%; height: 100%; background: linear-gradient(90deg, #78978a, var(--gold)); transition: width .3s; }
+.super-card.ready .super-track i { background: var(--cyan); }
+.super-button { width: 100%; padding: 7px 8px; display: flex; justify-content: space-between; border-color: rgba(121, 231, 221, .4); background: rgba(24, 62, 64, .75); color: var(--cyan); font: 8px var(--mono); letter-spacing: 1px; }
+.super-button:hover { background: rgba(35, 91, 91, .8); }
+.super-button span { font-size: 15px; }
+.unit-card { width: 390px; padding: 13px 15px 12px; }
+.unit-copy { flex: 1; min-width: 0; }
+.unit-identity h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unit-rank { align-self: flex-start; margin: 1px 0 0 auto; padding: 3px 5px; border: 1px solid rgba(238, 194, 119, .4); color: var(--gold); font: 7px var(--mono); letter-spacing: .8px; }
+.unit-stats { grid-template-columns: 1.2fr .8fr !important; }
+#hp-num { float: right; font: 7px var(--mono); color: #8ba79a; }
+.building-actions { display: flex; gap: 4px; margin-top: 10px; }
+.building-actions button { flex: 1; padding: 7px 4px; font: 8px var(--mono); letter-spacing: .4px; }
+.building-actions button.active { color: var(--gold); border-color: var(--gold); background: #352f22; }
+#mcv-deploy { flex: 1.4; color: var(--cyan); border-color: rgba(109, 224, 223, .35); }
+.mini-map { width: 218px; bottom: 177px; }
+.mini-map canvas { cursor: pointer; background: #12211f; }
+.mini-coord { margin-left: auto; font: 7px var(--mono); letter-spacing: .5px; color: #9b9d83; }
+.mini-map footer { align-items: center; flex-wrap: nowrap; }
+.notice-stack { position: fixed; right: calc(var(--side) + 30px); top: 125px; z-index: 20; display: grid; gap: 5px; width: 310px; pointer-events: none; }
+.notice-stack .toast { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid rgba(179, 201, 187, .2); background: rgba(10, 23, 26, .92); color: #c8d3c8; font: 9px var(--mono); letter-spacing: .45px; box-shadow: 0 5px 17px rgba(0, 0, 0, .22); animation: notice-in .22s ease-out; }
+.notice-stack .toast i { width: 3px; height: 18px; background: var(--gold); flex: 0 0 auto; }
+.notice-stack .toast.warning i, .notice-stack .toast.attack i { background: var(--red); }
+.notice-stack .toast.super i { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+@keyframes notice-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.tutorial.show { display: grid; }
+.tutorial { width: 350px; bottom: 178px; left: 232px; }
+.tutorial em { color: #d1b579; font-style: normal; }
+.world-hint { bottom: 18px; max-width: 500px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-status #hud-state { color: var(--cyan); }
+.radar-cell { min-width: 110px; }
+@media(max-width:1050px) {
+  .unit-card { width: 340px; }
+  .mini-map { width: 190px; }
+  .tutorial { left: 206px; width: 310px; }
+}
+@media(max-width:760px) {
+  .unit-card { width: auto; }
+  .notice-stack { right: 8px; width: 220px; top: 66px; }
+  .tutorial { left: 14px; bottom: 195px; width: calc(100% - 28px); }
+}
+
+/* Chinese typography pass: keep dense military HUD readable. */
+.build-tabs button { font-size: 9px !important; }
+.build-tabs button small { font-size: 7px !important; }
+.intel-head, .intel-head b { font-size: 8px !important; }
+#intel-copy { font-size: 10px !important; line-height: 1.55 !important; }
+.feed-line { font-size: 8px !important; line-height: 1.35 !important; }
+.bp-power, .bp-reason { font-size: 8px !important; }
+.queue-name b { font-size: 10px !important; }
+.queue-name small { font-size: 9px !important; }
+.queue-empty { font-size: 9px !important; }
+.super-title .tag { font-size: 8px !important; }
+.super-title b { font-size: 9px !important; }
+.super-button { font-size: 9px !important; }
+.building-actions button, .selection-actions button { font-size: 9px !important; }
+.unit-sub { font-size: 10px !important; }
+.notice-stack .toast { font-size: 10px !important; }
+.world-health span { font-size: 8px !important; }
+.mini-map header, .mini-map footer { font-size: 9px !important; }
+.hud-brand small { font-size: 9px !important; }
+.unit-identity .eyebrow { font-size: 9px !important; }
+.unit-stats small { font-size: 9px !important; }
+.unit-stats b { font-size: 10px !important; }

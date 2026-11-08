@@ -1,0 +1,15 @@
+{
+  "name": "iron-dawn-rts",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Iron Dawn - a cinematic real-time strategy skirmish demo",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "test": "node .qa/core-test.mjs"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  }
+}

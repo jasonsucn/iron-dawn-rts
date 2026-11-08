@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>IRON DAWN QA Console</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: #080a0c; overflow: hidden; font: 12px/1.45 Consolas, "Microsoft YaHei", monospace; color: #d8e2e8; }
+  #stage { position: absolute; inset: 0; }
+  #game { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+  #panel { position: fixed; right: 12px; bottom: 12px; width: 390px; max-height: 88vh; background: rgba(8,13,16,.94); border: 1px solid #2b4a57; box-shadow: 0 8px 40px #000b, inset 0 0 0 1px #0f1a1f; z-index: 9999; display: flex; flex-direction: column; }
+  #panel.collapsed { width: 150px; max-height: 30px; overflow: hidden; }
+  #bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: linear-gradient(180deg,#1b303b,#0e181d); border-bottom: 1px solid #29505e; letter-spacing: .08em; color: #8fcfdf; cursor: pointer; font-weight: 700; }
+  #bar button { background: #14303a; color: #9ad7e4; border: 1px solid #386170; padding: 2px 7px; cursor: pointer; font: inherit; }
+  #body { overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 7px; }
+  textarea { width: 100%; min-height: 64px; box-sizing: border-box; background: #05080a; color: #cce8ef; border: 1px solid #294652; padding: 6px; resize: vertical; font: inherit; }
+  .row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .row button { background: linear-gradient(180deg,#1d3943,#102028); border: 1px solid #35525d; color: #b9d9df; padding: 4px 7px; cursor: pointer; font: inherit; }
+  .row button:hover { background: #244b59; color: #fff; }
+  #out { white-space: pre-wrap; word-break: break-word; min-height: 72px; max-height: 260px; overflow: auto; background: #05080a; border: 1px solid #223b45; padding: 7px; color: #8fe2b5; font-size: 11px; }
+  #err { color: #ff8f7a; font-size: 11px; max-height: 90px; overflow: auto; white-space: pre-wrap; }
+  .hint { color: #6e8892; }
+  label { color: #8fa8b2; }
+  input[type=number] { width: 62px; background: #05080a; color: #cce8ef; border: 1px solid #294652; padding: 3px; font: inherit; }
+</style>
+</head>
+<body>
+<div id="stage"><iframe id="game" src="/" title="IRON DAWN game"></iframe></div>
+<div id="panel">
+  <div id="bar"><span>IRON DAWN · QA CONSOLE</span><button id="toggle">COLLAPSE</button></div>
+  <div id="body">
+    <div class="row">
+      <button id="reload">RELOAD GAME</button>
+      <button id="state">GET STATE</button>
+      <button id="keys">DEBUG KEYS</button>
+      <button id="errors">ERRORS</button>
+    </div>
+    <textarea id="expr" spellcheck="false">window.__IRON_DAWN__</textarea>
+    <div class="row">
+      <button id="run">RUN IN GAME</button>
+      <button data-expr="window.__IRON_DAWN__?.getState()">State</button>
+      <button data-expr="window.__IRON_DAWN__?.skipBuild()">Skip build</button>
+      <button data-expr="window.__IRON_DAWN__?.giveCredits(20000)">+20k</button>
+      <button data-expr="window.__IRON_DAWN__?.win()">Win</button>
+      <button data-expr="window.__IRON_DAWN__?.lose()">Lose</button>
+    </div>
+    <div class="row">
+      <label>LMB x/y</label><input id="cx" type="number" value="720"><input id="cy" type="number" value="450">
+      <button id="lclick">L-CLICK</button><button id="rclick">R-CLICK</button>
+    </div>
+    <div class="row">
+      <label>DRAG</label><input id="x1" type="number" value="560"><input id="y1" type="number" value="330"><input id="x2" type="number" value="880"><input id="y2" type="number" value="620">
+      <button id="drag">DO DRAG</button>
+    </div>
+    <div class="row">
+      <input id="key" value="a" style="width:50px;background:#05080a;color:#cce8ef;border:1px solid #294652;padding:3px;font:inherit">
+      <button id="press">PRESS KEY</button>
+      <button id="hideui">TOGGLE QA UI</button>
+    </div>
+    <div id="err"></div>
+    <div id="out">Ready.</div>
+  </div>
+</div>
+<script>
+(() => {
+  const frame = document.getElementById('game');
+  const out = document.getElementById('out');
+  const errBox = document.getElementById('err');
+  const panel = document.getElementById('panel');
+  const expr = document.getElementById('expr');
+  let errors = [];
+
+  function show(value) {
+    if (value === undefined) out.textContent = 'undefined';
+    else if (typeof value === 'string') out.textContent = value;
+    else try { out.textContent = JSON.stringify(value, null, 2); } catch { out.textContent = String(value); }
+  }
+  function gameWindow() { return frame.contentWindow; }
+  function evalInGame(code) {
+    try {
+      const w = gameWindow();
+      const result = w.eval(code);
+      show(result);
+      return result;
+    } catch (error) {
+      show('ERROR: ' + error.message + '\n' + (error.stack || ''));
+      errBox.textContent = 'ERROR: ' + error.message;
+    }
+  }
+  function injectHooks() {
+    try {
+      const w = gameWindow();
+      if (!w || w.__qaHooked) return;
+      w.__qaHooked = true;
+      w.addEventListener('error', e => {
+        errors.push('window.error: ' + (e.message || 'unknown'));
+        errBox.textContent = errors.slice(-4).join('\n');
+      });
+      w.addEventListener('unhandledrejection', e => {
+        errors.push('unhandledrejection: ' + (e.reason?.message || e.reason));
+        errBox.textContent = errors.slice(-4).join('\n');
+      });
+      const oldError = w.console.error;
+      w.console.error = (...args) => {
+        errors.push('console.error: ' + args.map(a => { try { return typeof a === 'string' ? a : JSON.stringify(a); } catch { return String(a); } }).join(' '));
+        errBox.textContent = errors.slice(-4).join('\n');
+        oldError.apply(w.console, args);
+      };
+    } catch {}
+  }
+  frame.addEventListener('load', () => {
+    errors = [];
+    setTimeout(injectHooks, 10);
+    out.textContent = 'Game frame loaded.';
+  });
+  document.getElementById('run').onclick = () => evalInGame(expr.value);
+  expr.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); evalInGame(expr.value); }
+  });
+  document.querySelectorAll('[data-expr]').forEach(btn => btn.onclick = () => { expr.value = btn.dataset.expr; evalInGame(btn.dataset.expr); });
+  document.getElementById('state').onclick = () => evalInGame('window.__IRON_DAWN__?.getState()');
+  document.getElementById('keys').onclick = () => evalInGame('Object.keys(window.__IRON_DAWN__ || {})');
+  document.getElementById('errors').onclick = () => { show(errors.length ? errors.join('\n\n') : 'No captured errors.'); };
+  document.getElementById('reload').onclick = () => { frame.src = '/?t=' + Date.now(); };
+  document.getElementById('toggle').onclick = (e) => { e.stopPropagation(); panel.classList.toggle('collapsed'); };
+  document.getElementById('bar').onclick = () => panel.classList.toggle('collapsed');
+  document.getElementById('hideui').onclick = () => panel.style.display = 'none';
+
+  function sendPointer(type, x, y, button = 0, buttons = 0) {
+    try {
+      const doc = frame.contentDocument;
+      const target = doc.elementFromPoint(x, y) || doc.body;
+      const event = new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, view: gameWindow(), clientX: x, clientY: y, button, buttons, pointerId: 1, pointerType: 'mouse', isPrimary: true });
+      target.dispatchEvent(event);
+      return { target: target.tagName + '.' + target.className, type, x, y };
+    } catch (error) { return { error: error.message }; }
+  }
+  function sendContext(x, y, button = 2, buttons = 0) {
+    try {
+      const doc = frame.contentDocument;
+      const target = doc.elementFromPoint(x, y) || doc.body;
+      target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: gameWindow(), clientX: x, clientY: y, button, buttons }));
+    } catch {}
+  }
+  document.getElementById('lclick').onclick = () => {
+    const x = +document.getElementById('cx').value, y = +document.getElementById('cy').value;
+    sendPointer('pointermove', x, y);
+    sendPointer('pointerdown', x, y, 0, 1);
+    setTimeout(() => sendPointer('pointerup', x, y, 0, 0), 45);
+    show('Left pointer click dispatched at ' + x + ',' + y);
+  };
+  document.getElementById('rclick').onclick = () => {
+    const x = +document.getElementById('cx').value, y = +document.getElementById('cy').value;
+    sendPointer('pointermove', x, y);
+    sendPointer('pointerdown', x, y, 2, 2);
+    setTimeout(() => sendPointer('pointerup', x, y, 2, 0), 45);
+    setTimeout(() => sendContext(x, y, 2, 0), 60);
+    show('Right pointer click dispatched at ' + x + ',' + y);
+  };
+  document.getElementById('drag').onclick = () => {
+    const x1 = +document.getElementById('x1').value, y1 = +document.getElementById('y1').value;
+    const x2 = +document.getElementById('x2').value, y2 = +document.getElementById('y2').value;
+    sendPointer('pointerdown', x1, y1, 0, 1);
+    let i = 1;
+    const timer = setInterval(() => {
+      const t = i / 10;
+      sendPointer('pointermove', x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, 0, 1);
+      if (i++ >= 10) {
+        clearInterval(timer);
+        sendPointer('pointerup', x2, y2, 0, 0);
+        show('Drag dispatched ' + [x1,y1,x2,y2].join(','));
+      }
+    }, 28);
+  };
+  document.getElementById('press').onclick = () => {
+    const key = document.getElementById('key').value;
+    const doc = frame.contentDocument;
+    const target = doc.activeElement || doc.body;
+    for (const type of ['keydown', 'keyup']) {
+      const e = new KeyboardEvent(type, { key, code: key.length === 1 ? 'Key' + key.toUpperCase() : key, bubbles: true, cancelable: true });
+      target.dispatchEvent(e);
+      gameWindow().dispatchEvent(e);
+    }
+    show('Key dispatched: ' + key);
+  };
+  setInterval(() => { try { injectHooks(); } catch {} }, 1000);
+})();
+</script>
+</body>
+</html>

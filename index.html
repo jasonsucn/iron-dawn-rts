@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101a1c">
+  <meta name="description" content="IRON DAWN 钢铁黎明 —— 原创 3D 即时战略遭遇战 DEMO。建立基地，指挥装甲部队，夺取地平线。">
+  <title>IRON DAWN 钢铁黎明 — 即时战略 DEMO</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./base.css">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./hud-extra.css">
+  <script type="importmap">
+  {"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <canvas id="battlefield" aria-label="三维战场"></canvas>
+  <div id="vignette" aria-hidden="true"></div>
+  <main id="interface"></main>
+  <div id="drag-box" hidden></div>
+  <div id="world-labels" aria-hidden="true"></div>
+  <div id="loading"><div class="loading-mark">ID<span>∕</span></div><p>正在建立指挥链路</p><div class="loading-bar"></div></div>
+  <section id="error-overlay" hidden role="alert"><div class="eyebrow">指挥链路中断</div><h1>无法继续</h1><pre id="error-detail"></pre><button onclick="location.reload()">重新连接</button></section>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

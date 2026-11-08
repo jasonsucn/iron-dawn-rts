@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.npm-cache/
+.pnpm-store/
+
+# Build output / caches
+dist/
+.cache/
+*.log
+*.tmp
+
+# Local agent and QA runtime state
+.agent/
+.agent2/
+.codex-home/
+.qa/profile/
+.qa/shots/
+.qa/edge-test/
+.qa/*.png
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.credentials*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Do not commit generated server PID state
+.server.pid
