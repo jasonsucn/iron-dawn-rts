@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import { Game } from './core/Game.js';
 import { DEFS, CATALOG, FACTIONS, DIFFICULTIES, displayName, clamp } from './data/definitions.js';
+import { VERSION_LABEL } from './data/version.js';
 import { terrainHeight } from './core/Map.js';
 import { createScene } from './render/Scene.js';
-import { makeModel, animateModel } from './render/Models.js';
+import { makeModel, animateModel, registerTankModel, registerSovietKitModel } from './render/Models.js';
+import { setTreeQuality } from './render/Trees.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Effects } from './render/Effects.js';
 import { HUD } from './ui/HUD.js';
 import { Input } from './ui/Input.js';
@@ -18,6 +21,10 @@ const errorDetail = document.querySelector('#error-detail');
 const labels = document.querySelector('#world-labels');
 const view = createScene(canvas);
 const effects = new Effects(view.scene);
+effects.onShake = (power, x, z) => {
+  const falloff = (x === undefined) ? 1 : Math.max(.2, 1 - Math.hypot(x - cameraTarget.x, z - cameraTarget.z) / 75);
+  shake = Math.max(shake, power * falloff);
+};
 const audio = new AudioEngine();
 const menus = new Menu(ui, audio);
 const scene = view.scene;
@@ -46,6 +53,9 @@ let rallyMarker = null;
 let rallyBuildingId = null;
 let orderMode = 'move';
 let edgeScroll = localStorage.getItem('iron-edge') !== '0';
+let superEnabled = localStorage.getItem('iron-super') !== '0';
+let performanceMode = localStorage.getItem('iron-perf') || 'auto';
+let lowQualityActive = false;
 let faction = 'allied';
 let difficulty = 'recruit';
 let accumulator = 0;
@@ -58,10 +68,12 @@ let fogAt = 0;
 let elapsed = 0;
 let shake = 0;
 let flashTimer = 0;
+let hitStop = 0;
 let worldReady = false;
 let gameStartedAt = 0;
 let qualityChecked = false;
 let collapsing = [];
+let wrecks = [];
 let scorches = [];
 let lastAlertAt = 0;
 let cameraTarget = new THREE.Vector3(-44, 0, 34);
@@ -281,20 +293,47 @@ function menuHTML() {
   return `<section class="menu-shell">
     <header class="menu-top"><span class="brand-mini">战术指挥系统</span><span><i class="live-dot"></i>本地指挥链路在线 <b class="menu-clock">07:42:19</b></span></header>
     <div class="menu-content">
-      <div class="menu-kicker"><span class="eyebrow">原创即时战略</span><span class="menu-build">版本 07.11</span></div>
-      <h1 class="menu-title">IRON<span>DAWN</span></h1>
-      <div class="menu-subtitle">钢 铁 黎 明 <span>∕</span> 遭遇战指挥</div>
+      <div class="menu-kicker"><span class="eyebrow">Jason.su 原创即时战略</span><span class="menu-build">${VERSION_LABEL}</span></div>
+      <h1 class="menu-title" aria-label="贱客战争"><span class="t-steel">贱客</span><span class="t-gold">战争</span></h1>
+      <div class="menu-subtitle">即时战略 <span>∕</span> 遭遇战指挥</div>
       <p class="menu-description">最后的余晖不属于任何人。<br>建立你的战争机器，夺取地平线。</p>
       <div class="field-label">01 ∕ 选择你的阵营</div>
       <div class="faction-options">
-        <button class="faction-card active" data-faction="allied" aria-pressed="true"><span class="sigil">◇</span><strong>盟军先锋</strong><small>同盟国远征军</small><em>精准 · 机动 · 极光打击</em></button>
-        <button class="faction-card" data-faction="soviet" aria-pressed="false"><span class="sigil">△</span><strong>苏军指挥部</strong><small>苏维埃装甲集群</small><em>钢铁 · 重装 · 核武威慑</em></button>
+        <button class="faction-card active" data-faction="allied" aria-pressed="true"><span class="sigil sigil-allied" aria-hidden="true"></span><strong>盟军先锋</strong><small>同盟国远征军</small><em>精准 · 机动 · 极光打击</em></button>
+        <button class="faction-card" data-faction="soviet" aria-pressed="false"><span class="sigil sigil-soviet" aria-hidden="true"></span><strong>苏军指挥部</strong><small>苏维埃装甲集群</small><em>钢铁 · 重装 · 核武威慑</em></button>
       </div>
       <div class="field-label">02 ∕ 选择威胁等级</div>
       <div class="difficulty-options">
-        <button class="active" data-level="recruit" aria-pressed="true">新兵<small>低强度</small></button>
-        <button data-level="veteran" aria-pressed="false">老兵<small>标准</small></button>
-        <button data-level="iron" aria-pressed="false">铁幕<small>高强度</small></button>
+<button data-level="recruit" class="tier tier-recruit" aria-pressed="true">
+            <svg class="tier-svg" viewBox="0 0 40 44" aria-hidden="true">
+            <path class="plate" d="M20 2.6 36.4 9.4v13.2c0 9.2-6.6 15.8-16.4 19-9.8-3.2-16.4-9.8-16.4-19V9.4Z"/>
+            <path class="chev c1" d="M11.6 16.4 20 11l8.4 5.4"/>
+            <path class="chev c2" d="M11.6 22.6 20 17.2l8.4 5.4"/>
+            <path class="chev c3" d="M11.6 28.8 20 23.4l8.4 5.4"/>
+          </svg>
+            <span class="tier-copy"><strong>新兵</strong><small>低强度 · 敌军 6 组</small></span>
+            <span class="tier-meter" aria-hidden="true"><i></i><i class="off"></i><i class="off"></i></span>
+          </button>
+<button data-level="veteran" class="tier tier-veteran" aria-pressed="false">
+            <svg class="tier-svg" viewBox="0 0 40 44" aria-hidden="true">
+            <path class="plate" d="M20 2.6 36.4 9.4v13.2c0 9.2-6.6 15.8-16.4 19-9.8-3.2-16.4-9.8-16.4-19V9.4Z"/>
+            <path class="chev c1" d="M11.6 16.4 20 11l8.4 5.4"/>
+            <path class="chev c2" d="M11.6 22.6 20 17.2l8.4 5.4"/>
+            <path class="chev c3" d="M11.6 28.8 20 23.4l8.4 5.4"/>
+          </svg>
+            <span class="tier-copy"><strong>老兵</strong><small>标准 · 敌军 8 组</small></span>
+            <span class="tier-meter" aria-hidden="true"><i></i><i></i><i class="off"></i></span>
+          </button>
+<button data-level="iron" class="tier tier-iron" aria-pressed="false">
+            <svg class="tier-svg" viewBox="0 0 40 44" aria-hidden="true">
+            <path class="plate" d="M20 2.6 36.4 9.4v13.2c0 9.2-6.6 15.8-16.4 19-9.8-3.2-16.4-9.8-16.4-19V9.4Z"/>
+            <path class="chev c1" d="M11.6 16.4 20 11l8.4 5.4"/>
+            <path class="chev c2" d="M11.6 22.6 20 17.2l8.4 5.4"/>
+            <path class="chev c3" d="M11.6 28.8 20 23.4l8.4 5.4"/>
+          </svg>
+            <span class="tier-copy"><strong>铁幕</strong><small>高强度 · 敌军 11 组</small></span>
+            <span class="tier-meter" aria-hidden="true"><i></i><i></i><i></i></span>
+          </button>
       </div>
       <button class="primary launch-button" data-action="start">开始遭遇战 <span>→</span></button>
       <div class="menu-links"><button data-action="manual">作战手册</button><button data-action="settings">音频 / 设置</button></div>
@@ -306,7 +345,7 @@ function menuHTML() {
 
 function showMenu() {
   cleanupGame();
-  audio.setIntense(false);
+  audio.setMusicPhase('menu');
   mode = 'menu';
   paused = false;
   document.body.classList.add('menu-active');
@@ -367,6 +406,29 @@ function wirePreferences(modal) {
       if (input) input.edge = edgeScroll;
     };
   }
+  const superPref = modal.querySelector('[data-setting=super]');
+  if (superPref) {
+    superPref.checked = superEnabled;
+    superPref.onchange = () => {
+      superEnabled = !!superPref.checked;
+      localStorage.setItem('iron-super', superEnabled ? '1' : '0');
+      if (world) world.superEnabled = superEnabled;
+      if (hud) hud.notice(superEnabled ? '超级武器已启用' : '超级武器已禁用', 'info');
+    };
+  }
+  const perfPref = modal.querySelector('[data-setting=perf]');
+  if (perfPref) {
+    perfPref.value = performanceMode;
+    perfPref.onchange = () => {
+      performanceMode = perfPref.value;
+      localStorage.setItem('iron-perf', performanceMode);
+      if (performanceMode === 'on') applyPerformance(true);
+      else if (performanceMode === 'off') applyPerformance(false);
+      if (hud) hud.notice(performanceMode === 'on' ? '性能模式已开启' : performanceMode === 'off' ? '性能模式已关闭' : '性能模式：自动', 'info');
+    };
+  }
+  const fullscreenButton = modal.querySelector('[data-action=fullscreen]');
+  if (fullscreenButton) fullscreenButton.onclick = () => toggleFullscreen();
   return modal;
 }
 
@@ -376,6 +438,8 @@ function cleanupGame() {
   for (const ring of rings.values()) { scene.remove(ring); }
   for (const ruin of collapsing) { scene.remove(ruin.node); }
   collapsing = [];
+  for (const wreck of wrecks) { scene.remove(wreck.node); }
+  wrecks = [];
   for (const scorch of scorches) { scene.remove(scorch.mesh); scorch.mesh.geometry.dispose(); scorch.material.dispose(); }
   scorches = [];
   nodes.clear(); rings.clear();
@@ -444,6 +508,7 @@ function handleEvent(type, data = {}) {
   }
   if (type === 'death' || type === 'sold') {
     const node = nodes.get(data.id);
+    if (type === 'death' && !data.building && node) spawnWreck(data, node);
     if (type === 'death' && data.building && node) {
       nodes.delete(data.id);
       const ring = rings.get(data.id);
@@ -455,7 +520,7 @@ function handleEvent(type, data = {}) {
       addScorch(data.x, data.z, 4.5);
     } else {
       removeVisual(data.id);
-      if (type === 'death') addScorch(data.x, data.z, data.building ? 3.5 : .9);
+      if (type === 'death') { addScorch(data.x, data.z, data.building ? 3.5 : .9); effects.burning(data.x, data.z, data.building ? 3.4 : 1.5, data.building ? 5.5 : 3); }
       if (type === 'sold' && data.x !== undefined) addScorch(data.x, data.z, 1.1);
     }
   }
@@ -471,11 +536,13 @@ function handleEvent(type, data = {}) {
     shake = Math.max(shake, .5);
   }
   if (type === 'supernova') {
-    triggerFlash(data.faction === 'soviet' ? '#ffd4b0' : '#c8fbff', .95);
-    shake = 1.8;
+    triggerFlash(data.faction === 'soviet' ? '#ffd4b0' : '#c8fbff', 1);
+    shake = Math.max(shake, 2.6);
+    hitStop = Math.max(hitStop, .14);
     addScorch(data.x, data.z, 8);
   }
-  if (type === 'death' && data.building) shake = Math.max(shake, .32);
+  if (type === 'death' && data.building) { shake = Math.max(shake, .6); triggerFlash('#ffb064', .2); hitStop = Math.max(hitStop, .06); }
+  if (type === 'death' && !data.building) { hitStop = Math.max(hitStop, .045); }
   if (type === 'wave') {
     if (hud) hud.notice(`敌军第 ${data.wave} 波进攻 · ${data.size} 个单位`, 'attack');
     triggerFlash('#ff5b4114', .22);
@@ -483,6 +550,84 @@ function handleEvent(type, data = {}) {
   if (type === 'end') {
     if (hud) hud.notice(data.status === 'victory' ? '敌方指挥体系已被摧毁' : '指挥链路中断', data.status === 'victory' ? 'super' : 'warning');
     showResult(data);
+  }
+}
+
+function spawnWreck(data, node) {
+  if (!['tank', 'advanced', 'harvester', 'mcv'].includes(data.type)) return;
+  let wreck;
+  try { wreck = makeModel(data.type, data.faction); } catch { return; }
+  wreck.position.copy(node.position);
+  wreck.rotation.y = node.rotation.y;
+  const darkened = new Map();
+  wreck.traverse(o => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    const next = mats.map(mat => {
+      if (!mat) return mat;
+      if (!darkened.has(mat)) {
+        const copy = mat.clone();
+        copy.color.multiplyScalar(.28);
+        copy.roughness = .92;
+        copy.metalness = .35;
+        if (copy.emissive) { copy.emissive.set('#2a0902'); copy.emissiveIntensity = .3; }
+        darkened.set(mat, copy);
+      }
+      return darkened.get(mat);
+    });
+    o.material = Array.isArray(o.material) ? next : next[0];
+  });
+  const parts = wreck.userData;
+  if (parts.turret) {
+    parts.turret.rotation.y = (Math.random() - .5) * 1.4;
+    parts.turret.position.y -= .08;
+  }
+  if (parts.barrel) {
+    parts.barrel.position.z = .38;
+    parts.barrel.rotation.x = .08;
+  }
+  scene.add(wreck);
+  const now = performance.now();
+  wrecks.push({ node: wreck, at: now, nextSmoke: now + 700, x: data.x, z: data.z, y: node.position.y });
+  if (wrecks.length > 16) { const oldest = wrecks.shift(); scene.remove(oldest.node); }
+  for (let i = 0; i < 3; i++) {
+    const smoke = effects.take('smoke', '#3e352c');
+    smoke.position.set(data.x + (Math.random() - .5) * .8, node.position.y + 1 + i * .35, data.z + (Math.random() - .5) * .8);
+    effects.add(smoke, 4.5 + i * 1.4, fx => {
+      fx.o.position.y += .32 * .016;
+      fx.o.position.x += Math.sin(fx.age * 1.7 + i) * .006;
+      fx.o.scale.setScalar(.2 + fx.age * .34);
+      fx.o.material.opacity = .24 * (1 - fx.age / fx.ttl);
+    });
+  }
+}
+
+function updateWrecks(now) {
+  for (let i = wrecks.length - 1; i >= 0; i--) {
+    const wreck = wrecks[i];
+    if (now - wreck.at > 45000) {
+      scene.remove(wreck.node);
+      wrecks.splice(i, 1);
+      continue;
+    }
+    if (now < wreck.nextSmoke) continue;
+    wreck.nextSmoke = now + 950 + Math.random() * 850;
+    const smoke = effects.take('smoke', '#3a322a');
+    smoke.position.set(wreck.x + (Math.random() - .5) * .6, wreck.y + 1.1 + Math.random() * .45, wreck.z + (Math.random() - .5) * .6);
+    effects.add(smoke, 4.2 + Math.random() * 2.2, fx => {
+      fx.o.position.y += .36 * .016;
+      fx.o.position.x += Math.sin(fx.age * 1.5) * .007;
+      fx.o.scale.setScalar(.18 + fx.age * .36);
+      fx.o.material.opacity = Math.max(0, .2 * (1 - fx.age / fx.ttl));
+    });
+    if (Math.random() < .28) {
+      const ember = effects.take('flash', '#ff8a42');
+      ember.position.set(wreck.x + (Math.random() - .5) * .4, wreck.y + .8, wreck.z + (Math.random() - .5) * .4);
+      effects.add(ember, .3, fx => {
+        fx.o.material.opacity = .45 * (1 - fx.age / fx.ttl);
+        fx.o.scale.setScalar(.08 + fx.age * .4);
+      }, 'flash');
+    }
   }
 }
 
@@ -717,6 +862,7 @@ function command(name) {
   const singleUnit = entities.length === 1 && !entities[0].def.building ? entities[0] : null;
   if (name === 'pause') { pauseGame(); return; }
   if (name === 'settings') { openSettingsInGame(); return; }
+  if (name === 'fullscreen') { toggleFullscreen(); return; }
   if (name === 'attackMove') {
     orderMode = 'attackMove';
     buildHudStatus('攻击移动已就绪 · 右键选择目的地');
@@ -728,6 +874,7 @@ function command(name) {
   if (name === 'repair' && building) { building.repair = !building.repair; if (hud) hud.notice(building.repair ? '维修班组已派出' : '维修已取消'); return; }
   if (name === 'deploy' && (building?.type === 'mcv' || singleUnit?.type === 'mcv')) { const mcv = building?.type === 'mcv' ? building : singleUnit; world.deploy(mcv.id); selected.clear(); selectionRefresh(); return; }
   if (name === 'target') {
+    if (!superEnabled) { if (hud) hud.notice('超级武器已在系统设置中关闭', 'warning'); return; }
     const sup = world.list(0).find(e => e.type === 'super' && e.charge >= 120);
     if (!sup) { if (hud) hud.notice('超级武器尚未就绪', 'warning'); return; }
     superTargeting = true; disposeGhost(); createReticle();
@@ -774,9 +921,13 @@ function issueOrder(point) {
 function startGame(options = {}) {
   try {
     audio.start();
-    audio.setIntense(true);
+    audio.setMusicPhase('game');
     cleanupGame();
     view.setLowQuality(false);
+  view.renderer.info.autoReset = false;
+  effects.setLowQuality(false);
+  if (performanceMode === 'on') applyPerformance(true);
+  else if (performanceMode === 'off') applyPerformance(false);
     if (options.faction) faction = options.faction;
     if (options.difficulty) difficulty = options.difficulty;
     if (!['allied', 'soviet'].includes(faction)) faction = 'allied';
@@ -822,7 +973,7 @@ function startGame(options = {}) {
     };
     hud = new HUD(ui, actions);
     buildThumbnails(faction);
-    world = new Game({ faction, difficulty, onEvent: handleEvent });
+    world = new Game({ faction, difficulty, onEvent: handleEvent, superEnabled });
     worldReady = true;
     for (const entity of world.list()) materialize(entity);
     fog.mesh.visible = true;
@@ -857,6 +1008,7 @@ function createHealthElementIfNeeded(entity) {
 
 function queueBlueprint(type) {
   if (!world) return;
+  if (type === 'super' && !superEnabled) { if (hud) hud.notice('超级武器已在系统设置中关闭', 'warning'); return; }
   if (world.economy.enqueue(0, type)) {
     audio.start();
     if (DEFS[type].building) buildHudStatus(`${displayName(type, faction)}已加入生产队列`);
@@ -927,6 +1079,7 @@ function showResult(data) {
   if (mode === 'result') return;
   mode = 'result';
   paused = true;
+  audio.setMusicPhase('result');
   if (input) input.reset();
   const status = data.status;
   const time = data.time || world?.time || 0;
@@ -1018,6 +1171,12 @@ function updateEntityVisuals(now, dt) {
       node.position.y = y;
     }
     animateModel(node, entity, now / 1000, dt);
+    const lodProxy = node.userData.lodProxy;
+    if (lodProxy) {
+      const far = camera.position.distanceTo(node.position) > 92;
+      lodProxy.visible = far;
+      if (node.userData.body) node.userData.body.visible = !far;
+    }
     if (entity.p === 1) {
       let see = world.visibleTo(0, entity);
       if (entity.def.building) see = !!world.fog[0].explored[world.nav.index(entity.x, entity.z)];
@@ -1033,7 +1192,7 @@ function updateEntityVisuals(now, dt) {
             ? { x: entity.x + (Math.random() < .5 ? -1.65 : 1.65), y: y + 4.8, z: entity.z }
             : entity.type === 'refinery'
               ? { x: entity.x - 2.4, y: y + 5.4, z: entity.z - 1.8 }
-              : { x: entity.x + 4, y: y + 6.2, z: entity.z - 3 };
+              : { x: entity.x + 4, y: y + 7.05, z: entity.z - 3 };
           const smoke = effects.take('smoke', '#5d5a50');
           smoke.position.set(chimney.x, chimney.y, chimney.z);
           effects.add(smoke, 2.4 + Math.random() * 1.2, fx => {
@@ -1045,6 +1204,16 @@ function updateEntityVisuals(now, dt) {
           });
         }
       }
+      // 受损单位/建筑持续冒烟，让战场一直有动态
+      if (!entity.construct && entity.hp < entity.maxHp * .62) {
+        node.userData.damageAt ??= now + 200 + Math.random() * 600;
+        if (now > node.userData.damageAt) {
+          const isBuilding = !!entity.def.building;
+          node.userData.damageAt = now + (isBuilding ? 330 : 540) + Math.random() * 420;
+          effects.damageSmoke(entity.x, y + (isBuilding ? 2.8 : 1.1), entity.z, isBuilding);
+        }
+      }
+
       // Tracks kick up dust when armor moves.
       if (!entity.def.building && entity.moving && entity.def.armor === 'heavy') {
         node.userData.dustAt ??= now + 150;
@@ -1109,7 +1278,7 @@ function updateHealthBars() {  if (!world || !labels) return;
     const show = visible && (selected.has(id) || damaged);
     el.hidden = !show;
     if (!show) continue;
-    const h = entity.def.building ? 7.2 : (entity.def.armor === 'infantry' ? 2.7 : 3.4);
+    const h = entity.def.building ? (entity.type === 'yard' ? 9.2 : entity.type === 'radar' ? 8.1 : 7.2) : (entity.def.armor === 'infantry' ? 2.7 : 3.4);
     projectVector.set(entity.x, terrainHeight(entity.x, entity.z) + h, entity.z).project(camera);
     if (projectVector.z > 1) { el.hidden = true; continue; }
     const x = (projectVector.x + 1) / 2 * innerWidth;
@@ -1147,21 +1316,26 @@ function frame(now) {
   elapsed += dt;
   frames++;
   if (now - fpsAt > 1000) { fps = frames * 1000 / (now - fpsAt); frames = 0; fpsAt = now; }
+  updatePerfReadout(now);
   if (mode === 'game' && !qualityChecked && gameStartedAt && now - gameStartedAt > 6500) {
     qualityChecked = true;
-    if (fps < 28) {
-      view.setLowQuality(true);
-      if (hud) hud.notice('性能模式 · 已关闭后期处理', 'warning');
+    if (performanceMode === 'auto' && fps < 28) {
+      applyPerformance(true, true);
     }
   }
+  const slowMotion = hitStop > 0;
+  if (slowMotion) hitStop = Math.max(0, hitStop - dt);
+  const stepDt = slowMotion ? dt * .22 : dt;
   if (mode === 'game' && !paused && world) {
-    accumulator += dt;
+    accumulator += stepDt;
     let steps = 0;
     while (accumulator >= 1 / 30 && steps < 10) { world.tick(1 / 30); accumulator -= 1 / 30; steps++; }
     if (steps >= 10) accumulator = 0;
+    audio.setProductionActive(Object.values(world.players[0].queues).some(queue => queue.length > 0));
     if (input) input.update(dt);
     updateEntityVisuals(now, dt);
     updateCollapsing(now);
+    updateWrecks(now);
     if (now - fogAt > 220) { fogAt = now; updateFogTexture(); }
     updateHealthBars();
     updateHUD(now);
@@ -1180,6 +1354,7 @@ function frame(now) {
   effects.update(dt);
   updateScorches(now);
   updateCamera(dt);
+  view.renderer.info.reset();
   view.render();
 }
 
@@ -1206,6 +1381,13 @@ window.__IRON_DAWN__ = {
     return world.spawn(type, p, Number(x), Number(z));
   },
   giveCredits(amount = 10000) { if (world) world.players[0].credits += Number(amount); },
+  strikeNow(x = 0, z = 0) {
+    if (!world) return false;
+    const base = world.list(0).find(e => e.type === 'super');
+    if (!base) return false;
+    base.charge = 120;
+    return world.combat.strike(0, Number(x), Number(z));
+  },
   damage(id, amount = 500) { if (world) { const e = world.entities.get(Number(id)); if (e) world.combat.damage(e, Number(amount), 'explosive', null, true); } },
   win() { if (world) world.end('victory'); },
   lose() { if (world) world.end('defeat'); },
@@ -1216,8 +1398,15 @@ window.__IRON_DAWN__ = {
   issueAttack(id) { if (world) { const e = world.entities.get(Number(id)); if (e) world.order([...selected], e, 'attack'); } },
   queue(type) { queueBlueprint(type); },
   advance(seconds = 1) { if (!world) return; const steps = Math.min(9000, Math.round(Number(seconds) * 30)); for (let i = 0; i < steps && world.status === 'playing'; i++) world.tick(1 / 30); },
+  fxMode: () => ({ simple: effects.simple, low: lowQualityActive, live: effects.live.length }),
   getCamera: () => camera,
+  focus(x, z, zoom = 1) {
+    cameraTarget.set(Number(x) || 0, 0, Number(z) || 0);
+    cameraZoom = clamp(Number(zoom) || 1, .55, 1.8);
+    cameraIntro = .35;
+  },
   getView: () => view,
+  getAudio: () => audio,
   enterPlacement: type => enterPlacement(type),
   confirmPlacement(x, z) { confirmTarget({ x: Number(x), z: Number(z) }); },
   targetSuper() { command('target'); },
@@ -1238,6 +1427,97 @@ window.addEventListener('keydown', event => {
   resumeGame();
 });
 window.addEventListener('pointerdown', () => audio.start(), { once: true });
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showMenu);
-else showMenu();
+
+function applyPerformance(low, auto = false) {
+  lowQualityActive = !!low;
+  view.setLowQuality(lowQualityActive);
+  effects.setLowQuality(lowQualityActive);
+  setTreeQuality(lowQualityActive);
+  if (lowQualityActive && auto && hud) hud.notice('性能模式 · 已自动降级（关闭后处理/阴影）', 'warning');
+}
+
+// 每 250ms 刷新一次性能读数
+let perfAt = 0;
+function updatePerfReadout(now) {
+  if (!hud || !view || now - perfAt < 250) return;
+  perfAt = now;
+  const info = view.renderer.info.render;
+  hud.updatePerf({ fps, calls: info.calls, tris: info.triangles, low: lowQualityActive, anyFps: hud.lastFps });
+}
+
+function syncFullscreenButton() {
+  const button = ui.querySelector('[data-command="fullscreen"]');
+  const on = !!document.fullscreenElement;
+  if (button) {
+    button.title = on ? '退出全屏 [Alt+Enter]' : '全屏 [Alt+Enter]';
+    button.setAttribute('aria-pressed', String(on));
+    button.classList.toggle('active', on);
+  }
+  document.body.classList.toggle('fs-mode', on);
+  if (!on) document.body.classList.remove('idle-cursor');
+}
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    const exit = document.exitFullscreen?.();
+    if (exit && exit.catch) exit.catch(() => {});
+    return;
+  }
+  const element = document.documentElement;
+  let request;
+  try {
+    request = element.requestFullscreen?.({ navigationUI: 'hide' });
+  } catch (error) {
+    request = element.requestFullscreen?.();
+  }
+  if (request && request.catch) request.catch(() => { if (hud) hud.notice('浏览器拒绝了全屏请求', 'warning'); });
+}
+
+document.addEventListener('fullscreenchange', () => {
+  syncFullscreenButton();
+  if (hud) hud.notice(document.fullscreenElement ? '已进入全屏 · 按 Alt+Enter 退出' : '已退出全屏', 'info');
+});
+
+let idleCursorTimer = 0;
+window.addEventListener('pointermove', () => {
+  if (!document.fullscreenElement) return;
+  document.body.classList.remove('idle-cursor');
+  clearTimeout(idleCursorTimer);
+  idleCursorTimer = setTimeout(() => {
+    if (document.fullscreenElement) document.body.classList.add('idle-cursor');
+  }, 1200);
+}, { passive: true });
+
+window.addEventListener('keydown', event => {
+  if (event.code !== 'Enter' || !event.altKey) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  event.preventDefault();
+  toggleFullscreen();
+});
+
+function preloadHeroModels() {
+  const loader = new GLTFLoader();
+  const load = (path, register, label) => loader.loadAsync(path).then(gltf => {
+    register(gltf.scene);
+    console.info(`[IRON DAWN] Hero ${label} loaded.`);
+  }).catch(error => {
+    console.warn(`[IRON DAWN] Hero ${label} unavailable; procedural model remains.`, error);
+  });
+  return Promise.all([
+    load('./assets/models/vanguard_tank.glb', registerTankModel, 'vanguard tank'),
+    load('./assets/models/soviet_tank_kit.glb', registerSovietKitModel, 'soviet tank kit')
+  ]);
+}
+
+async function boot() {
+  await Promise.race([
+    preloadHeroModels(),
+    new Promise(resolve => setTimeout(resolve, 3500))
+  ]);
+  showMenu();
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
 requestAnimationFrame(frame);

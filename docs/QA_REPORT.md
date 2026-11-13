@@ -44,6 +44,11 @@ Core AI run observed: AI expanded to 12 buildings / 39 units and launched 2 wave
 | Faction switch | PASS | Soviet start used Soviet models, names, UI accent and 3D icons; Allied AI used the opposing set. |
 | 中文界面 | PASS | 主菜单、HUD、建造目录、单位/建筑名与说明、任务提示、设置、暂停、结算、简报均已中文化；保留了 IRON DAWN 品牌与按键字母。 |
 | Audio initialization | PASS (load) | No blocking errors; subjective sound quality not audibly verified in this headless environment. |
+| 动态配乐接入 | PASS | 从 `红色警戒2.5D` 项目引入 ambient/production/combat/resolve 四段 MP3；浏览器中四段均成功解码，菜单、生产、战斗、结算状态切换验证通过，无控制台错误。 |
+| 雷达站重做 | PASS | 修复根节点 `radar` 与旋转组同名导致整栋建筑旋转的问题；改为独立 `radar_head`；房体 `rotation.y = 0`，雷达头独立旋转；主体改为八角塔楼并区分盟军碟形雷达/苏军阵列。 |
+| 主基地重做 | PASS（第一版） | 主基地改为八角指挥中枢、双侧承重翼、开放式建造庭院、中央高塔、通讯冠和建造龙门；保留 10×9 占地约束；根节点保持静止，`yard_trolley` 横向移动、`yard_hoist` 纵向起吊；浏览器截图验收通过；核心回归测试通过。 |
+| 战车工厂 Blender 英雄资产 | PASS（第一版） | 54 个网格 / 697 三角面的 GLB 成功接入；运行时按材质合批为约 14 个节点；门体枢轴、阵营灯带、发光条和烟囱锚点已处理；浏览器无捕获错误。尚未做贴图、背面细节、LOD 和完整 360° 美术验收。 |
+| 先锋坦克 Blender 英雄资产 | PASS（第一版） | 47 个网格 / 647 三角面的 GLB 成功接入；运行时重建 body/turret/barrel 层级，车体、炮塔、炮管分别合批；炮塔枢轴 `[0,1.58,0.03]`、炮管枢轴 `[0,0.43,0.85]` 与现有动画一致；盟军/苏军材质验证通过；左右各 18 节履带 InstancedMesh 和 5 组负重轮旋转验证通过；击毁生成压暗残骸与烟雾；低面数代理（约 172 顶点）LOD 切换验证通过；苏军附加装甲套件成功挂接；浏览器无捕获错误。尚未做真实悬挂和自动减面 LOD。 |
 | Adaptive performance mode | PASS | After sustained low FPS, bloom/FXAA downgraded and a feed notice appeared. |
 
 ## Defects found and fixed during acceptance

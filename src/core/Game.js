@@ -5,8 +5,8 @@ import { Economy } from './Economy.js';
 import { Combat } from './Combat.js';
 import { CommanderAI } from './AI.js';
 export class Game {
-  constructor({faction='allied',difficulty='recruit',onEvent=()=>{},demo=false}={}) {
-    this.faction=faction;this.difficulty=difficulty;this.onEvent=onEvent;this.demo=demo;
+  constructor({faction='allied',difficulty='recruit',onEvent=()=>{},demo=false,superEnabled=true}={}) {
+    this.faction=faction;this.difficulty=difficulty;this.onEvent=onEvent;this.demo=demo;this.superEnabled=superEnabled!==false;
     this.time=0;this.status='playing';this.entities=new Map();this.nextId=1;this.random=seeded(23481);this.map=makeMap();
     this.players=[faction,faction==='allied'?'soviet':'allied'].map((f,i)=>({faction:f,credits:9000,supply:0,demand:0,lowPower:false,queues:{structures:[],infantry:[],vehicles:[]},stats:{kills:0,losses:0,harvested:0},name:i?'HOSTILE COMMAND':'YOUR COMMAND'}));
     this.fog=[0,1].map(()=>({visible:new Uint8Array(6400),explored:new Uint8Array(6400)}));
@@ -21,6 +21,7 @@ export class Game {
   notice(p,text,kind='info'){if(p===0)this.emit('notice',{text,kind});}
   list(p) { return [...this.entities.values()].filter(e=>!e.dead&&(p===undefined||e.p===p)); }
   spawn(type,p,x,z,options={}) {
+    if(type==='super'&&this.superEnabled===false)return null;
     if(!DEFS[type])throw new Error(`Unknown entity type: ${type}`);
     if(typeof p==='string')p=p===this.players[0].faction?0:1;
     p=p===1?1:0;const def=DEFS[type],faction=this.players[p].faction;

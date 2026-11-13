@@ -140,3 +140,20 @@
 .unit-identity .eyebrow { font-size: 9px !important; }
 .unit-stats small { font-size: 9px !important; }
 .unit-stats b { font-size: 10px !important; }
+
+/* 超级武器禁用态 */
+.super-card.disabled { opacity: .5; filter: grayscale(.65); }
+.super-card.disabled .super-track { display: none; }
+
+/* 全屏模式：静止时隐藏光标，避免光标停在屏幕边缘吸附出浏览器提示 */
+body.idle-cursor, body.idle-cursor * { cursor: none !important; }
+body.fs-mode { overflow: hidden; }
+
+/* 性能读数与性能模式选择 */
+.perf-chip{font:9px var(--mono);letter-spacing:.4px;color:#9fd8c6;background:#0d1a1c;border:1px solid #274848;padding:2px 6px}
+.perf-chip.good{color:#7fe3a0;border-color:#2f5c44}
+.perf-chip.warn{color:#e8c86a;border-color:#5c4f2a}
+.perf-chip.bad{color:#ff8a7a;border-color:#5c3030}
+.perf-chip.low::after{content:' · 性能';color:#7fa39d}
+.setting select{background:#0b1417;color:#cfe3e6;border:1px solid #2d4b52;padding:3px 5px;font:inherit}
+.setting select option{background:#0b1417;color:#cfe3e6}

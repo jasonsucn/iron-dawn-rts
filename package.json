@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Iron Dawn - a cinematic real-time strategy skirmish demo",
+  "description": "贱客战争 — 原创 3D 即时战略遭遇战 DEMO",
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",

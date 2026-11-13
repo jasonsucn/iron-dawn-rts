@@ -77,6 +77,7 @@ export function createScene(canvas){
   if(lowQuality===!!value)return;
   lowQuality=!!value;
   renderer.setPixelRatio(lowQuality?1:Math.min(devicePixelRatio||1,1.65));
+  renderer.shadowMap.enabled=!lowQuality;
   composer.setSize(innerWidth,innerHeight);
   fxaa.uniforms.resolution.value.set(1/(innerWidth*renderer.getPixelRatio()),1/(innerHeight*renderer.getPixelRatio()));
  }

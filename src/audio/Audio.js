@@ -1,4 +1,5 @@
-// Fully procedural WebAudio score and battlefield SFX. No external samples.
+// Adaptive sampled score (ambient/production/combat/resolve) plus procedural WebAudio SFX.
+// The four MP3s are local assets copied from the IRON DAWN 2.5D project.
 export class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -14,6 +15,19 @@ export class AudioEngine {
     this.nextNote = 0;
     this.intense = false;
     this.ambient = null;
+    this.musicDuck = null;
+    this.musicConfig = null;
+    this.musicBuffers = new Map();
+    this.musicLoading = null;
+    this.musicReady = false;
+    this.musicFallback = false;
+    this.musicState = 'ambient';
+    this.musicPhase = 'menu';
+    this.productionActive = false;
+    this.combatUntil = 0;
+    this.combatTimer = 0;
+    this.currentMusic = null;
+    this.resolvePlayed = false;
   }
 
   start() {
@@ -29,7 +43,9 @@ export class AudioEngine {
       this.master.gain.value = .56;
       this.musicGain = this.ctx.createGain();
       this.sfxGain = this.ctx.createGain();
-      this.musicGain.gain.value = .16;
+      this.musicDuck = this.ctx.createGain();
+      this.musicGain.gain.value = .42;
+      this.musicDuck.gain.value = 1;
       this.sfxGain.gain.value = .5;
       const compressor = this.ctx.createDynamicsCompressor();
       compressor.threshold.value = -16;
@@ -37,14 +53,15 @@ export class AudioEngine {
       compressor.ratio.value = 5;
       compressor.attack.value = .006;
       compressor.release.value = .22;
-      this.musicGain.connect(compressor);
+      this.musicGain.connect(this.musicDuck);
+      this.musicDuck.connect(compressor);
       this.sfxGain.connect(compressor);
       compressor.connect(this.master);
       this.master.connect(this.ctx.destination);
       this.started = true;
       this.ctx.resume().catch(() => {});
       this.ambience();
-      this.music();
+      void this.loadMusic();
     } catch {
       this.enabled = false;
     }
@@ -73,6 +90,169 @@ export class AudioEngine {
     source.connect(filter); filter.connect(gain); gain.connect(this.master);
     source.start();
     this.ambient = source;
+  }
+
+  async loadMusic() {
+    if (!this.ctx) return false;
+    if (this.musicLoading) return this.musicLoading;
+    this.musicLoading = (async () => {
+      const response = await fetch('./assets/audio/music/music.json', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Music config HTTP ${response.status}`);
+      const config = await response.json();
+      if (!config?.tracks) throw new Error('Music config has no tracks');
+      await Promise.all(Object.entries(config.tracks).map(async ([state, track]) => {
+        const audioResponse = await fetch(new URL(track.src, document.baseURI), { cache: 'force-cache' });
+        if (!audioResponse.ok) throw new Error(`${state} HTTP ${audioResponse.status}`);
+        const bytes = await audioResponse.arrayBuffer();
+        const buffer = await this.ctx.decodeAudioData(bytes);
+        this.musicBuffers.set(state, buffer);
+      }));
+      if (!this.musicBuffers.has('ambient')) throw new Error('Ambient track missing');
+      this.musicConfig = config;
+      this.musicReady = true;
+      this.syncMusic();
+      return true;
+    })().catch(error => {
+      console.warn('[AudioEngine] External music unavailable; using procedural fallback.', error);
+      this.musicFallback = true;
+      if (!this.musicTimer) this.music();
+      return false;
+    });
+    return this.musicLoading;
+  }
+
+  setMusicPhase(phase) {
+    const previousPhase = this.musicPhase;
+    this.musicPhase = phase;
+    this.resolvePlayed = false;
+    if (phase !== 'game') this.productionActive = false;
+    if (phase === 'game' && previousPhase !== 'game') {
+      this.productionActive = false;
+      this.combatUntil = 0;
+      if (this.combatTimer) {
+        clearTimeout(this.combatTimer);
+        this.combatTimer = 0;
+      }
+    }
+    if (phase === 'menu') {
+      this.combatUntil = 0;
+      if (this.combatTimer) {
+        clearTimeout(this.combatTimer);
+        this.combatTimer = 0;
+      }
+    }
+    this.syncMusic();
+  }
+
+  setProductionActive(active) {
+    const next = Boolean(active);
+    if (this.productionActive === next) return;
+    this.productionActive = next;
+    this.syncMusic();
+  }
+
+  pulseCombat(seconds = 9) {
+    if (this.musicPhase !== 'game') return;
+    this.combatUntil = performance.now() + Math.max(1, seconds) * 1000;
+    if (this.combatTimer) clearTimeout(this.combatTimer);
+    this.combatTimer = setTimeout(() => {
+      this.combatTimer = 0;
+      this.combatUntil = 0;
+      this.syncMusic();
+    }, Math.max(1, seconds) * 1000);
+    this.syncMusic();
+  }
+
+  syncMusic() {
+    if (!this.started || !this.ctx) return;
+    const now = performance.now();
+    let state = 'ambient';
+    if (this.musicPhase === 'result') state = this.resolvePlayed ? 'ambient' : 'resolve';
+    else if (this.musicPhase === 'game' && this.combatUntil > now) state = 'combat';
+    else if (this.musicPhase === 'game' && this.productionActive) state = 'production';
+    this.setMusicState(state);
+  }
+
+  setMusicState(state) {
+    this.intense = state === 'combat';
+    if (state === this.musicState && this.currentMusic) return;
+    this.musicState = state;
+    if (!this.musicReady || !this.musicConfig || !this.musicBuffers.has(state)) return;
+    this.transitionMusic(state);
+  }
+
+  transitionMusic(state) {
+    const now = this.ctx.currentTime;
+    const fade = Math.max(.2, Number(this.musicConfig?.switch?.crossfadeSec ?? 1.6));
+    if (this.currentMusic) {
+      const old = this.currentMusic;
+      old.retiring = true;
+      try {
+        const gain = old.gain.gain;
+        if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(now);
+        else {
+          const value = gain.value;
+          gain.cancelScheduledValues(now);
+          gain.setValueAtTime(value, now);
+        }
+        gain.linearRampToValueAtTime(0, now + fade);
+        old.source.stop(now + fade + .06);
+      } catch {}
+      this.currentMusic = null;
+    }
+    const track = this.musicConfig?.tracks?.[state];
+    const buffer = this.musicBuffers.get(state);
+    if (!track || !buffer) return;
+    const loop = track.loop;
+    const start = loop ? Math.max(0, Number(loop.start) || 0) : 0;
+    const end = loop ? Math.min(buffer.duration, Number(loop.end) || buffer.duration) : buffer.duration;
+    if (end <= start) return;
+    const source = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    source.buffer = buffer;
+    if (loop) {
+      source.loop = true;
+      source.loopStart = start;
+      source.loopEnd = end;
+    }
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(Math.max(.01, Number(track.volume ?? .6)), now + fade);
+    source.connect(gain);
+    gain.connect(this.musicGain);
+    source.start(now, start);
+    const voice = { source, gain, state, retiring: false };
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+      if (this.currentMusic === voice) this.currentMusic = null;
+      if (state === 'resolve' && !voice.retiring) {
+        this.resolvePlayed = true;
+        this.syncMusic();
+      }
+    };
+    this.currentMusic = voice;
+  }
+
+  duckMusic() {
+    if (!this.ctx || !this.musicDuck) return;
+    const now = this.ctx.currentTime;
+    const gain = this.musicDuck.gain;
+    const value = Math.min(gain.value, .34);
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(value, now);
+    gain.setTargetAtTime(1, now + .05, .34);
+  }
+
+  getMusicState() {
+    return {
+      ready: this.musicReady,
+      fallback: this.musicFallback,
+      phase: this.musicPhase,
+      state: this.musicState,
+      productionActive: this.productionActive,
+      combatRemaining: Math.max(0, this.combatUntil - performance.now()) / 1000,
+      buffered: [...this.musicBuffers.keys()]
+    };
   }
 
   scheduleTone(freq, duration = .2, wave = 'sine', volume = .15, when = 0, dest = 'sfx', target = null, glide = null) {
@@ -224,6 +404,10 @@ export class AudioEngine {
 
   event(type, d = {}) {
     if (!this.started || !this.enabled) return;
+    if (type === 'fire' || type === 'wave' || type === 'strikeWarning' || type === 'supernova' || (type === 'notice' && (d.kind === 'attack' || d.kind === 'super'))) {
+      this.pulseCombat(type === 'wave' ? 15 : 9);
+    }
+    if (type === 'fire' && d.kind !== 'bullet') this.duckMusic();
     switch (type) {
       case 'order': this.tone(610, .065, 'square', .038, 0, 'sfx', 1.3); break;
       case 'queue': this.tone(360, .1, 'triangle', .035); this.tone(580, .16, 'sine', .03, .08); break;
@@ -253,13 +437,24 @@ export class AudioEngine {
     }
   }
 
-  setMusic(v) { if (this.musicGain) this.musicGain.gain.value = Number(v); }
+  setMusic(v) { if (this.musicGain) this.musicGain.gain.value = Math.max(0, Math.min(1, Number(v) || 0)); }
   setSfx(v) { if (this.sfxGain) this.sfxGain.gain.value = Number(v); }
   setVoice(v) { this.voice = !!v; if (!v && window.speechSynthesis) speechSynthesis.cancel(); }
 
   dispose() {
     if (this.musicTimer) clearInterval(this.musicTimer);
     this.musicTimer = null;
+    if (this.combatTimer) clearTimeout(this.combatTimer);
+    this.combatTimer = 0;
+    if (this.currentMusic) {
+      this.currentMusic.retiring = true;
+      try { this.currentMusic.source.stop(); } catch {}
+      this.currentMusic = null;
+    }
+    this.musicBuffers.clear();
+    this.musicLoading = null;
+    this.musicReady = false;
+    this.musicFallback = false;
     if (window.speechSynthesis) speechSynthesis.cancel();
     try { this.ambient?.stop(); } catch {}
     for (const n of this.nodes) try { n.stop(); } catch {}

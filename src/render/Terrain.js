@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { terrainHeight,isWater } from '../core/Map.js';
+import { trees } from './Trees.js';
 function groundTexture(){
  const c=document.createElement('canvas');c.width=c.height=256;const ctx=c.getContext('2d');const img=ctx.createImageData(256,256);
  let seed=99173;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
@@ -46,19 +47,6 @@ function dust(scene){
  const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(positions,3));
  const mat=new T.PointsMaterial({color:'#ffd9a0',size:.085,transparent:true,opacity:.36,depthWrite:false,blending:T.AdditiveBlending,sizeAttenuation:true});
  const points=new T.Points(geo,mat);points.frustumCulled=false;scene.add(points);
-}
-function trees(scene,seed=1423){
- let s=seed;const rand=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
- const placements=[];for(let i=0;i<670;i++){
-  const x=rand()*150-75,z=rand()*150-75;
-  if(isWater(x,z)||Math.abs(x+z)<6||Math.hypot(x+48,z-44)<22||Math.hypot(x-48,z+44)<22)continue;
-  if(Math.random()<0.06)continue;placements.push([x,z,.7+rand()*.85,rand()*Math.PI*2]);
- }
- const trunk=new T.InstancedMesh(new T.CylinderGeometry(.12,.22,1.4,6),new T.MeshStandardMaterial({color:'#4a3f31',roughness:1}),placements.length);
- const crown=new T.InstancedMesh(new T.ConeGeometry(1,2.7,7),new T.MeshStandardMaterial({color:'#2c4237',roughness:.95}),placements.length);
- const brass=new T.Object3D(),pale=new T.Color();
- placements.forEach(([x,z,scale,rot],i)=>{const y=terrainHeight(x,z);brass.position.set(x,y+.7*scale,z);brass.rotation.set(0,rot,0);brass.scale.setScalar(scale);brass.updateMatrix();trunk.setMatrixAt(i,brass.matrix);crown.setMatrixAt(i,brass.matrix);crown.setColorAt(i,pale.setHSL(.28+rand()*.09,.22,.16+rand()*.09));brass.position.y+=1.6*scale;brass.scale.setScalar(1.13*scale);brass.updateMatrix();crown.setMatrixAt(i,brass.matrix);});
- trunk.castShadow=true;crown.castShadow=true;scene.add(trunk,crown);
 }
 function oreVisuals(scene,map){
  const geo=new T.OctahedronGeometry(1,0),mat=new T.MeshStandardMaterial({color:'#efb33d',emissive:'#9e640d',emissiveIntensity:.9,metalness:.55,roughness:.28}),crystals=new T.InstancedMesh(geo,mat,map.ore.length*3),o=new T.Object3D();let k=0;

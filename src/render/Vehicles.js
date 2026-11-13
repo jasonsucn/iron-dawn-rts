@@ -52,17 +52,3 @@ export function vehicle(root,type,faction,m){
   }
   if(sov){for(const side of [-1,1])box(body,m.brass,side*1.35*wide,1.3,-.4,.08,.12,2.2,.02);}
 }
-export function infantry(root,type,faction,m){
-  const body=group(root,'body');root.userData.body=body;
-  box(body,m.body,0,1.16,0,.6,.72,.39,.12);box(body,m.armor,0,1.2,.22,.5,.55,.13,.07);
-  box(body,m.dark,0,1.18,-.3,.45,.57,.25,.07);sphere(body,m.armor,0,1.84,0,.3);
-  cyl(body,m.dark,0,1.96,0,.32,.36,.25,10);box(body,m.light,0,1.85,.26,.34,.09,.06,.02);
-  root.userData.legs=[];root.userData.arms=[];
-  for(const side of [-1,1]){
-    const leg=group(body,'leg',side*.18,.88,0);box(leg,m.body,0,-.32,0,.23,.68,.24,.06);box(leg,m.rubber,0,-.7,.08,.27,.19,.4,.05);root.userData.legs.push(leg);
-    const arm=group(body,'arm',side*.41,1.5,0);box(arm,m.armor,0,-.17,.1,.22,.44,.25,.06);box(arm,m.body,0,-.34,.3,.21,.21,.5,.06);root.userData.arms.push(arm);
-  }
-  const gun=group(body,'turret',.28,1.18,.48);root.userData.turret=gun;
-  if(type==='rocket'){const launcher=cyl(gun,m.dark,.05,.28,.05,.18,.18,1.15,8);launcher.rotation.x=Math.PI/2;box(gun,m.team,.05,.48,0,.3,.09,.7,.02);}
-  else {box(gun,m.dark,0,0,.22,.14,.19,.8,.025);pipe(gun,m.steel,[0,0,.45],[0,0,.95],.045);}
-}

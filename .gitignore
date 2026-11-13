@@ -34,3 +34,12 @@ Thumbs.db
 
 # Do not commit generated server PID state
 .server.pid
+
+# Local dev scaffolding
+tools/glm-bridge/
+preview-*.html
+*.bak.js
+
+# Dev scaffolding / scripts
+tools/
+

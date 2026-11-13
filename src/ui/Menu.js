@@ -13,11 +13,18 @@ export class Menu {
   }
   settings() {
     const el = this.modal('系统设置', `
-      <label class="setting">音乐音量<input data-audio="music" type="range" min="0" max="0.35" step="0.01" value="0.17"></label>
+      <label class="setting">音乐音量<input data-audio="music" type="range" min="0" max="0.8" step="0.01" value="0.42"></label>
       <label class="setting">战斗音效<input data-audio="sfx" type="range" min="0" max="1" step="0.05" value="0.55"></label>
       <label class="setting">无线电语音<input data-audio="voice" type="checkbox" checked></label>
       <label class="setting">边缘滚屏<input data-setting="edge" type="checkbox" checked></label>
-      <div class="note">音乐、音效与战场环境声均由本机实时合成，首次点击后启动。全部画面为实时 3D 渲染。</div>`);
+      <label class="setting">超级武器<input data-setting="super" type="checkbox" checked></label>
+      <label class="setting">全屏模式<button class="primary small" data-action="fullscreen">切换全屏 [Alt+Enter]</button></label>
+      <label class="setting">性能模式<select data-setting="perf">
+        <option value="auto">自动（掉帧自动降级）</option>
+        <option value="on">强制开启（最高帧率）</option>
+        <option value="off">关闭（最佳画面）</option>
+      </select></label>
+      <div class="note">原创动态配乐来自 IRON DAWN 2.5D 资源库，音效与环境声由本机实时合成。首次点击后启动。</div>`);
     el.querySelector('[data-audio=music]').oninput = e => this.audio.setMusic(e.target.value);
     el.querySelector('[data-audio=sfx]').oninput = e => this.audio.setSfx(e.target.value);
     el.querySelector('[data-audio=voice]').onchange = e => this.audio.setVoice(e.target.checked);

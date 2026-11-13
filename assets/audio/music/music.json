@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "tracks": {
+    "ambient": {
+      "src": "assets/audio/music/ambient.mp3",
+      "bpm": 72,
+      "key": "D minor",
+      "durationSec": 69.92,
+      "loop": { "start": 0, "end": 69.92, "crossfadeSec": 1.2 },
+      "volume": 0.55
+    },
+    "production": {
+      "src": "assets/audio/music/production.mp3",
+      "bpm": 96,
+      "key": "D minor",
+      "durationSec": 46.76,
+      "loop": { "start": 0, "end": 46.76, "crossfadeSec": 0.9 },
+      "volume": 0.62
+    },
+    "combat": {
+      "src": "assets/audio/music/combat.mp3",
+      "bpm": 120,
+      "key": "D minor",
+      "durationSec": 46.36,
+      "loop": { "start": 0, "end": 46.36, "crossfadeSec": 0.9 },
+      "volume": 0.66
+    },
+    "resolve": {
+      "src": "assets/audio/music/resolve.mp3",
+      "bpm": 72,
+      "key": "D minor",
+      "durationSec": 9.88,
+      "loop": null,
+      "volume": 0.6
+    }
+  },
+  "defaultState": "ambient",
+  "switch": {
+    "crossfadeSec": 2.0,
+    "duckDuringFireSec": 0.9,
+    "duckGainDb": -8,
+    "fadeOutOnResetSec": 0.6
+  }
+}

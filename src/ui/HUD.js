@@ -58,14 +58,14 @@ export class HUD {
   make() {
     this.root.innerHTML = `
       <header class="hud-top">
-        <div class="hud-brand"><span class="faction-pin" id="hud-pin"></span><b>IRON DAWN</b><small>钢铁黎明 · <span id="hud-faction">盟军先锋</span></small></div>
+        <div class="hud-brand"><span class="faction-pin" id="hud-pin"></span><b>贱客战争</b><small>即时战略 · <span id="hud-faction">盟军先锋</span></small></div>
         <div class="hud-readout">
           <span class="read-cell"><small>资金</small><b id="credits">—</b><em id="income"></em></span>
           <span class="read-cell"><small>电力</small><b id="power">—</b><em id="power-warning"></em></span>
           <span class="read-cell"><small>作战时间</small><b id="time">00:00</b></span>
           <span class="read-cell radar-cell"><small>战术雷达</small><b id="radar-online">受限</b></span>
         </div>
-        <div class="hud-status"><i class="live-dot"></i><span id="hud-state">交战中</span><button data-command="pause" title="暂停 [Esc]">Ⅱ</button><button data-command="settings" title="设置">⚙</button></div>
+        <div class="hud-status"><i class="live-dot"></i><span id="hud-state">交战中</span><span class="perf-chip" id="perf-chip" title="帧率 · 绘制调用 · 三角形">— FPS</span><button data-command="home" title="回到基地 [Space]">⌂</button><button data-command="fullscreen" title="全屏 [Alt+Enter]">⛶</button><button data-command="pause" title="暂停 [Esc]">Ⅱ</button><button data-command="settings" title="设置">⚙</button></div>
       </header>
       <div class="hud-objective"><span class="tag">主要目标</span><span>摧毁敌方建造厂</span></div>
       <div class="alerts" id="alerts"></div>
@@ -143,11 +143,26 @@ export class HUD {
     this.fogCanvas.width = this.fogCanvas.height = 80;
     this.fogCtx = this.fogCanvas.getContext('2d');
     this.fogImage = this.fogCtx.createImageData(80, 80);
-    this.root.querySelector('.mini-map').addEventListener('pointerdown', event => {
-      if (event.target !== this.mapCanvas) return;
+    const mini = this.root.querySelector('.mini-map');
+    const jump = event => {
       const rect = this.mapCanvas.getBoundingClientRect();
       this.a.minimap((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+    };
+    let dragging = false;
+    mini.addEventListener('pointerdown', event => {
+      if (event.target !== this.mapCanvas) return;
+      dragging = true;
+      mini.setPointerCapture?.(event.pointerId);
+      jump(event);
+      event.preventDefault();
     });
+    mini.addEventListener('pointermove', event => {
+      if (!dragging) return;
+      jump(event);
+    });
+    const stopDrag = () => { dragging = false; };
+    mini.addEventListener('pointerup', stopDrag);
+    mini.addEventListener('pointercancel', stopDrag);
   }
 
   setTab(tab) {
@@ -166,6 +181,21 @@ export class HUD {
     return iconThumb(type, faction);
   }
 
+  updatePerf({ fps = 0, calls = 0, tris = 0, low = false } = {}) {
+    const chip = this.root.querySelector('#perf-chip');
+    const value = Math.round(fps);
+    if (chip) {
+      chip.textContent = value + ' FPS';
+      chip.classList.toggle('good', value >= 55);
+      chip.classList.toggle('warn', value >= 30 && value < 55);
+      chip.classList.toggle('bad', value < 30);
+      chip.classList.toggle('low', low);
+      chip.title = value + ' 帧/秒 · ' + calls + ' 次绘制 · ' + Math.round(tris / 1000) + 'k 三角形' + (low ? ' · 性能模式' : '');
+    }
+    const tag = this.root.querySelector('#fps-tag');
+    if (tag) tag.textContent = value + ' 帧/秒' + (low ? ' · 性能模式' : '');
+  }
+
   update(world, selection, placement, fps) {
     if (!world) return;
     const player = world.players[0];
@@ -181,6 +211,7 @@ export class HUD {
     this.root.querySelector('#hud-faction').textContent = faction === 'soviet' ? '苏军指挥部' : '盟军先锋';
     this.root.querySelector('#hud-pin').style.background = faction === 'soviet' ? 'var(--red)' : 'var(--cyan)';
     this.root.querySelector('#fps-tag').textContent = `${Math.round(fps)} 帧/秒`;
+    this.lastFps = fps;
     this.root.querySelector('#hud-state').textContent = world.players[0].lowPower ? '电力告急' : '交战中';
     this.root.querySelector('#hud-state').style.color = world.players[0].lowPower ? 'var(--red)' : '';
     const radar = world.list(0).some(e => e.type === 'radar');
@@ -283,6 +314,16 @@ export class HUD {
     const ready = supers.some(e => e.charge >= 120);
     const bar = this.root.querySelector('#super-bar');
     const state = this.root.querySelector('#super-state');
+    if (world.superEnabled === false) {
+      card.hidden = false;
+      card.classList.remove('ready', 'charging');
+      card.classList.add('disabled');
+      state.textContent = '已禁用';
+      bar.style.width = '0%';
+      button.hidden = true;
+      return;
+    }
+    card.classList.remove('disabled');
     if (!supers.length) {
       card.hidden = true;
       card.classList.remove('ready', 'charging');

@@ -20,7 +20,7 @@ export class CommanderAI {
     if(!q.structures.length) {
       let next;
       if(player.supply<player.demand+45&&has('yard'))next='power';
-      else next=['power','refinery','barracks','factory','radar','defense','super'].find(t=>!has(t));
+      else next=['power','refinery','barracks','factory','radar','defense','super'].find(t=>!has(t)&&(t!=='super'||w.superEnabled!==false));
       if(!next&&count('defense')<3)next='defense';
       if(next&&!w.economy.requirements(1,next))w.economy.enqueue(1,next);
     }
